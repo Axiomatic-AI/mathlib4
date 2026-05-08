@@ -48,7 +48,7 @@ jobs:
           # Copy any .ltar files already on this machine from prior builds.
           # Use `find -exec ... +` instead of a `cp *.ltar` glob: the cache
           # accumulates enough files to exceed ARG_MAX otherwise.
-          REPO_DIR="$HOME/mathlib-cache/f/winstonyin-ax/mathlib4_agents"
+          REPO_DIR="$HOME/mathlib-cache/f/Axiomatic-AI/mathlib4_agents"
           mkdir -p ~/.cache/mathlib
           if [ -d "$REPO_DIR" ]; then
             find "$REPO_DIR" -maxdepth 1 -name '*.ltar' \
@@ -75,7 +75,7 @@ jobs:
           # Copy .ltar files to the served cache directory. Use
           # `find -exec ... +` rather than a `cp *.ltar` glob so we don't hit
           # ARG_MAX once the cache directory grows large.
-          REPO_DIR="$HOME/mathlib-cache/f/winstonyin-ax/mathlib4_agents"
+          REPO_DIR="$HOME/mathlib-cache/f/Axiomatic-AI/mathlib4_agents"
           mkdir -p "$REPO_DIR"
           find ~/.cache/mathlib/ -maxdepth 1 -name '*.ltar' \
             -exec cp -u -t "$REPO_DIR/" {} +
