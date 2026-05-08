@@ -16,6 +16,8 @@ require "leanprover-community" / "proofwidgets" @ git "v0.0.98"
 require "leanprover-community" / "importGraph" @ git "main"
 require "leanprover-community" / "LeanSearchClient" @ git "main"
 require "leanprover-community" / "plausible" @ git "main"
+require quiver from git
+  "git@github.com:winstonyin-ax/quiver" @ "main" / "lean"
 
 
 /-!
@@ -75,6 +77,9 @@ lean_lib Archive where
   leanOptions := mathlibLeanOptions
 
 lean_lib Counterexamples where
+  leanOptions := mathlibLeanOptions
+
+lean_lib Quantum where
   leanOptions := mathlibLeanOptions
 
 /-- Additional documentation in the form of modules that only contain module docstrings. -/

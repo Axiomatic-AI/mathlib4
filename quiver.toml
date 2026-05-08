@@ -1,0 +1,50 @@
+# Quiver pipeline configuration
+# https://github.com/your-org/quiver
+
+[project]
+root_modules = ["Mathlib", "Quantum"]
+lean_dir = "."
+data_dir = "/home/yin/quiver-data"
+# docker_dir = ""       # auto-detected from .lake/packages/quiver/docker; override if needed
+
+[lgg]
+nn_descent_checkpoint = "lgg/nn_descent.knn"  # .csv and _generic_patterns.csv derived from this
+k = 30                # base number of nearest neighbors
+max_k = 60           # maximum per-node k for dynamic growth
+max_iter = 50         # maximum NN-descent iterations
+sim_threshold = 0.7   # min similarity for generic pattern detection
+k_grow_threshold = 0.7  # min worst-neighbor sim to trigger k growth
+generic_threshold = 30 # min distinct declarations for a pattern to be generic
+max_aug_iter = 20      # max augmentation refinement rounds
+round_size = 20000000  # pairs per round
+no_aug = false        # disable augmentation
+
+[extract]
+jobs = 0              # 0 = auto-detect CPU cores
+force = false
+skip_decl = false
+skip_synth = false
+trace_synth = false
+
+[neo4j]
+user = "neo4j"
+password = "mathlib4"
+browser_port = 7474       # host port for Neo4j browser UI
+bolt_port = 7687          # host port for Bolt protocol
+web_port = 8000           # host port for Quiver web UI
+compose_project = "mathlib4_agents"   # Docker Compose project name (default: derived from root_module)
+# uri = ""               # override Bolt URI (default: bolt://localhost:<bolt_port>)
+
+[embedding]
+model = "intfloat/e5-large-v2"
+port = 9100
+batch_size = 1024       # tune for your GPU (64 conservative; 512+ on high-VRAM CUDA)
+device = ""           # auto-detect (cuda > mps > cpu)
+
+[translation]
+model = "claude-sonnet-4-20250514"
+batch_size = 50
+temperature = 0.3
+max_tokens = 1024
+max_deps = 10
+dep_freq_threshold = 100  # exclude deps with >= this many dependents (0 = no filter); see data/cache/dep_counts.csv
