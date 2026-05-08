@@ -1,0 +1,111 @@
+name: Quiver
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: lean-build
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    name: Quiver
+    runs-on: [self-hosted, quiver]
+    timeout-minutes: 300
+    env:
+      LAKE_NO_CACHE: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Cleanup workspace
+        run: |
+          rm -rf "$GITHUB_WORKSPACE"/*
+          rm -rf "$GITHUB_WORKSPACE"/.lake
+
+      - name: Checkout quiver branch
+        uses: actions/checkout@v4
+        with:
+          ref: quiver
+          fetch-depth: 0
+
+      - name: Merge latest master into quiver
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git fetch origin master
+          git merge origin/master --no-edit || {
+            echo "::error::Merge conflict merging master into quiver"
+            exit 1
+          }
+
+      - name: Install elan (if needed)
+        run: |
+          if ! command -v elan &> /dev/null; then
+            curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+            echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install Lean toolchain
+        run: |
+          elan toolchain install "$(cat lean-toolchain)" || true
+          elan default "$(cat lean-toolchain)"
+          lake --version
+
+      - name: Resolve dependencies
+        run: |
+          source $HOME/quiver-venv/bin/activate
+          lake update quiver
+          pip install --force-reinstall --no-deps .lake/packages/quiver/docker
+
+      - name: Copy master build cache
+        run: |
+          SOURCE="$HOME/mathlib-master-build"
+          if [ ! -d "$SOURCE/build/lib" ]; then
+            echo "::error::Master build snapshot not found. Run main CI on master first."
+            exit 1
+          fi
+          # Copy main build lib
+          mkdir -p .lake/build/lib
+          rsync -a --delete "$SOURCE/build/lib/" .lake/build/lib/
+          # Copy package build libs
+          for pkg in "$SOURCE"/packages/*/; do
+            name=$(basename "$pkg")
+            dst=".lake/packages/$name/.lake/build/lib"
+            if [ -d ".lake/packages/$name" ]; then
+              echo "Syncing package cache: $name ..."
+              mkdir -p "$dst"
+              rsync -a --delete "$SOURCE/packages/$name/build/lib/" "$dst/"
+            fi
+          done
+
+      - name: Build quiver
+        run: lake build quiver
+
+      - name: Extract graph
+        run: |
+          source $HOME/quiver-venv/bin/activate
+          quiver extract all
+
+      - name: Load graph into database
+        run: |
+          source $HOME/quiver-venv/bin/activate
+          quiver database load -y
+
+      - name: Update LGG
+        run: |
+          source $HOME/quiver-venv/bin/activate
+          quiver lgg recompute --skip-csv
+          quiver lgg all --resume
+          quiver lgg load
+
+      - name: Update natural language glosses and embeddings
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          source $HOME/quiver-venv/bin/activate
+          quiver nl update --include-stale --refresh-cache
+          quiver nl load
+
+      - name: Restart web server
+        run: |
+          source $HOME/quiver-venv/bin/activate
+          quiver database restart-web

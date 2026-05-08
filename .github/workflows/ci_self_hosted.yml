@@ -1,0 +1,96 @@
+name: CI (self-hosted)
+
+on:
+  push:
+    branches:
+      - master
+      - 'agent/**'
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: lean-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: [self-hosted, main]
+    env:
+      LAKE_NO_CACHE: true  # Use mathlib cache tool instead of Lake's cache
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Cleanup workspace
+        run: |
+          # Clean previous run artifacts
+          rm -rf "$GITHUB_WORKSPACE"/*
+          rm -rf "$GITHUB_WORKSPACE"/.lake
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install elan (if needed)
+        run: |
+          if ! command -v elan &> /dev/null; then
+            curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+            echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install Lean toolchain
+        run: |
+          elan toolchain install "$(cat lean-toolchain)" || true
+          elan default "$(cat lean-toolchain)"
+          lake --version
+
+      - name: Seed local cache from server
+        run: |
+          # Copy any .ltar files already on this machine from prior builds.
+          # Use `find -exec ... +` instead of a `cp *.ltar` glob: the cache
+          # accumulates enough files to exceed ARG_MAX otherwise.
+          REPO_DIR="$HOME/mathlib-cache/f/Axiomatic-AI/mathlib4_agents"
+          mkdir -p ~/.cache/mathlib
+          if [ -d "$REPO_DIR" ]; then
+            find "$REPO_DIR" -maxdepth 1 -name '*.ltar' \
+              -exec cp -n -t ~/.cache/mathlib/ {} + 2>/dev/null || true
+          fi
+
+      - name: Fetch remaining cache from Azure
+        run: lake exe cache get
+
+      - name: Build
+        run: lake build Mathlib Quantum
+
+      - name: Check for unused imports (mk_all)
+        run: lake exe mk_all --check
+        continue-on-error: true
+
+      - name: Lint style
+        uses: leanprover-community/lint-style-action@a7e7428fa44f9635d6eb8e01919d16fd498d387a
+        continue-on-error: true
+
+      - name: Pack and publish cache
+        run: |
+          lake exe cache pack
+          # Copy .ltar files to the served cache directory. Use
+          # `find -exec ... +` rather than a `cp *.ltar` glob so we don't hit
+          # ARG_MAX once the cache directory grows large.
+          REPO_DIR="$HOME/mathlib-cache/f/Axiomatic-AI/mathlib4_agents"
+          mkdir -p "$REPO_DIR"
+          find ~/.cache/mathlib/ -maxdepth 1 -name '*.ltar' \
+            -exec cp -u -t "$REPO_DIR/" {} +
+
+      - name: Snapshot master build for quiver
+        if: github.ref == 'refs/heads/master'
+        run: |
+          DEST="$HOME/mathlib-master-build"
+          mkdir -p "$DEST/build/lib"
+          rsync -a --delete --exclude='.tmp*' .lake/build/lib/ "$DEST/build/lib/"
+          for pkg in .lake/packages/*/; do
+            name=$(basename "$pkg")
+            src="$pkg.lake/build/lib"
+            if [ -d "$src" ]; then
+              mkdir -p "$DEST/packages/$name/build/lib"
+              rsync -a --delete --exclude='.tmp*' "$src/" "$DEST/packages/$name/build/lib/"
+            fi
+          done

@@ -1,0 +1,86 @@
+name: Agent Task
+description: Submit a task for the automated agent system to work on.
+labels: ["agent/ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **How this works.** A contributor agent picks up the issue, posts a
+        plan, then implements. Reply `APPROVE PLAN` to start, or give feedback
+        to revise. Reply `MERGE` (or `MERGE #<pr>`) to merge. The contributor
+        splits multi-PR work via `SPAWN_CHILD` — do NOT file sub-issues yourself.
+
+        Optional fields are genuinely optional. Prefer concrete paths, names,
+        and grep patterns over prose.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: |
+        What to accomplish, and why. Include the "why" when it isn't obvious
+        from the "what" — it shapes scope decisions.
+      placeholder: |
+        Add a lemma stating that the sum of two convergent sequences converges
+        to the sum of the individual limits. Needed to simplify a proof in
+        Mathlib/Analysis/... that currently inlines this argument three times.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and references
+      description: |
+        Pointers the contributor would otherwise hunt for:
+
+        - **Pre-committed plan** (for large tasks): link a file like
+          `docs/foo-refactor.md` and state "treat as source of truth."
+        - **Key files & existing code**: module paths, similar lemmas to
+          model after.
+        - **Prior attempts**: stalled PRs, past issues, Zulip threads — say
+          *why* they failed.
+        - **Dependencies**: "blocks #123", "needs #456 merged first".
+      placeholder: |
+        Plan: docs/foo-refactor.md (treat as source of truth)
+
+        Key files:
+        - Mathlib/Topology/Algebra/InfiniteSum/Basic.lean (target of new lemmas)
+        - Mathlib/Analysis/Normed/Module/Basic.lean (main caller, lines 120–180)
+
+        Prior attempt: PR #12345 stalled because it tried to generalize
+        prematurely — stick to the non-generic form for now.
+    validations:
+      required: false
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and conventions
+      description: |
+        Rules that bind every PR (main or sub-PR) — naming, attributes,
+        do-not-touch lists, imports, style. Auto-propagated to spawned
+        children.
+      placeholder: |
+        - Follow the `Namespace.verb_noun` naming pattern for new declarations.
+        - Do not add imports to `Mathlib/Init/*`.
+        - Prefer `calc` over chained `rw` for proofs over three steps.
+        - Every PR description includes a "Linter pass" checklist.
+    validations:
+      required: false
+
+  - type: textarea
+    id: done_criteria
+    attributes:
+      label: Done criteria
+      description: |
+        How to verify the task is complete. Concrete and scriptable beats
+        aspirational — prefer grep patterns, build targets, file-level
+        assertions. The contributor uses this as the exit test; the human,
+        as the merge checklist.
+      placeholder: |
+        - Full `lake build` green.
+        - `grep -r "old_name" Mathlib/` returns zero non-alias lines.
+        - The new lemma is referenced in at least one downstream proof.
+    validations:
+      required: false
