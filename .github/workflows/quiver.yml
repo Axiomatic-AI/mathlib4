@@ -52,7 +52,7 @@ jobs:
 
       - name: Resolve dependencies
         run: |
-          source $HOME/quiver-venv/bin/activate
+          source $HOME/quiver/.venv/bin/activate
           lake update quiver
           pip install --force-reinstall --no-deps .lake/packages/quiver/docker
 
@@ -82,17 +82,17 @@ jobs:
 
       - name: Extract graph
         run: |
-          source $HOME/quiver-venv/bin/activate
+          source $HOME/quiver/.venv/bin/activate
           quiver extract all
 
       - name: Load graph into database
         run: |
-          source $HOME/quiver-venv/bin/activate
+          source $HOME/quiver/.venv/bin/activate
           quiver database load -y
 
       - name: Update LGG
         run: |
-          source $HOME/quiver-venv/bin/activate
+          source $HOME/quiver/.venv/bin/activate
           quiver lgg recompute --skip-csv
           quiver lgg all --resume
           quiver lgg load
@@ -101,11 +101,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          source $HOME/quiver-venv/bin/activate
+          source $HOME/quiver/.venv/bin/activate
           quiver nl update --include-stale --refresh-cache
           quiver nl load
 
       - name: Restart web server
         run: |
-          source $HOME/quiver-venv/bin/activate
+          source $HOME/quiver/.venv/bin/activate
           quiver database restart-web
