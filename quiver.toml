@@ -4,7 +4,7 @@
 [project]
 root_modules = ["Mathlib"]
 lean_dir = "."
-data_dir = "/home/yin/quiver-data"
+data_dir = "/home/leopoldo/quiver-data"
 # docker_dir = ""       # auto-detected from .lake/packages/quiver/docker; override if needed
 
 [lgg]
