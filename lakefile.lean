@@ -17,7 +17,7 @@ require "leanprover-community" / "importGraph" @ git "main"
 require "leanprover-community" / "LeanSearchClient" @ git "main"
 require "leanprover-community" / "plausible" @ git "main"
 require quiver from git
-  "git@github.com:winstonyin-ax/quiver" @ "main" / "lean"
+  "git@github.com:Axiomatic-AI/quiver" @ "main" / "lean"
 
 
 /-!
