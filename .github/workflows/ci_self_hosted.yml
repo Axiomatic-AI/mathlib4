@@ -59,7 +59,7 @@ jobs:
         run: lake exe cache get
 
       - name: Build
-        run: lake build Mathlib Quantum
+        run: lake build Mathlib
 
       - name: Check for unused imports (mk_all)
         run: lake exe mk_all --check

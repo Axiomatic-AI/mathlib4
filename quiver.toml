@@ -2,7 +2,7 @@
 # https://github.com/your-org/quiver
 
 [project]
-root_modules = ["Mathlib", "Quantum"]
+root_modules = ["Mathlib"]
 lean_dir = "."
 data_dir = "/home/yin/quiver-data"
 # docker_dir = ""       # auto-detected from .lake/packages/quiver/docker; override if needed
