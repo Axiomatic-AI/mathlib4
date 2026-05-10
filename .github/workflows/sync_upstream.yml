@@ -32,13 +32,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Diagnose PAT
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_PAT }}
-        run: |
-          echo "PAT length: ${#GH_TOKEN}"
-          gh api graphql -f query='{ viewer { login } repository(owner:"Axiomatic-AI", name:"mathlib4") { viewerPermission } }'
-
       - name: Skip if a sync PR is already open
         id: guard
         env:
@@ -155,8 +148,10 @@ jobs:
 
           # Guard step ensures no open PR exists on $SYNC_BRANCH at this point,
           # so always create a fresh PR rather than risk editing a closed/merged one.
-          gh pr create \
-            --base master \
-            --head "$SYNC_BRANCH" \
-            --title "$TITLE" \
-            --body "$BODY"
+          # Use REST API directly: `gh pr create` does extra GraphQL queries that
+          # fail under fine-grained PATs even with full pull-requests:write scope.
+          gh api -X POST "repos/${{ github.repository }}/pulls" \
+            -f title="$TITLE" \
+            -f head="$SYNC_BRANCH" \
+            -f base=master \
+            -f body="$BODY"

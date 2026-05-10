@@ -47,11 +47,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
-          gh pr merge "${{ steps.pr.outputs.number }}" \
-            --repo "${{ github.repository }}" \
-            --merge \
-            --delete-branch=false \
-            --subject "[auto-sync] Merge upstream mathlib4 into master (PR #${{ steps.pr.outputs.number }})"
+          # Use REST API directly: `gh pr merge` does extra GraphQL queries that
+          # fail under fine-grained PATs even with full pull-requests:write scope.
+          gh api -X PUT "repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/merge" \
+            -f merge_method=merge \
+            -f commit_title="[auto-sync] Merge upstream mathlib4 into master (PR #${{ steps.pr.outputs.number }})" \
+            -f commit_message="Auto-merged by sync_finalize after CI success."
           echo "Merged PR #${{ steps.pr.outputs.number }}; main CI on master will fire next."
 
       - name: Comment and fail on CI failure
@@ -60,8 +61,8 @@ jobs:
           GH_TOKEN: ${{ secrets.SYNC_PAT }}
         run: |
           CI_URL="${{ github.event.workflow_run.html_url }}"
-          gh pr comment "${{ steps.pr.outputs.number }}" \
-            --repo "${{ github.repository }}" \
-            --body "Auto-merge blocked: \`CI (self-hosted)\` concluded with \`${{ github.event.workflow_run.conclusion }}\`. See ${CI_URL}. Resolve and push to \`sync/upstream\` to retry."
+          BODY="Auto-merge blocked: \`CI (self-hosted)\` concluded with \`${{ github.event.workflow_run.conclusion }}\`. See ${CI_URL}. Resolve and push to \`sync/upstream\` to retry."
+          gh api -X POST "repos/${{ github.repository }}/issues/${{ steps.pr.outputs.number }}/comments" \
+            -f body="$BODY"
           echo "::error::CI failed on sync/upstream (${{ github.event.workflow_run.conclusion }}). Auto-merge aborted."
           exit 1
