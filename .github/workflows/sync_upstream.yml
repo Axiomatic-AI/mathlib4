@@ -94,6 +94,14 @@ jobs:
               > /tmp/conflict_files.txt || true
           fi
 
+      - name: Write upstream SHA to upstream_sha
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          echo "${{ steps.check.outputs.upstream_sha }}" > upstream_sha
+          git add upstream_sha
+          # Fold into the merge commit so master gets one atomic commit per sync.
+          git commit --amend --no-edit
+
       - name: Push sync branch
         if: steps.check.outputs.needed == 'true'
         run: git push origin "$SYNC_BRANCH" --force-with-lease
