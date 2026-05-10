@@ -32,6 +32,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Diagnose PAT
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: |
+          echo "PAT length: ${#GH_TOKEN}"
+          gh api graphql -f query='{ viewer { login } repository(owner:"Axiomatic-AI", name:"mathlib4") { viewerPermission } }'
+
       - name: Skip if a sync PR is already open
         id: guard
         env:
