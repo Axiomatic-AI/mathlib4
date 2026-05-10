@@ -1,0 +1,67 @@
+name: Sync upstream finalize
+
+# Triggered after CI (self-hosted) finishes on the sync/upstream branch.
+# - On CI success: merges the sync PR into master (PAT push triggers main CI on master,
+#   which in turn triggers Quiver via workflow_run).
+# - On CI failure: this workflow fails loudly and posts a comment on the PR.
+
+on:
+  workflow_run:
+    workflows: ["CI (self-hosted)"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  finalize:
+    name: Auto-merge sync PR or fail
+    runs-on: ubuntu-latest
+    # Only act on CI runs whose head was the sync branch (PR or push).
+    if: github.event.workflow_run.head_branch == 'sync/upstream'
+    env:
+      SYNC_BRANCH: sync/upstream
+    steps:
+      - name: Find PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: |
+          PR=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "$SYNC_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+          if [ -z "$PR" ]; then
+            echo "No open PR for $SYNC_BRANCH; nothing to finalize."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "number=$PR" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Auto-merge on CI success
+        if: steps.pr.outputs.found == 'true' && github.event.workflow_run.conclusion == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: |
+          gh pr merge "${{ steps.pr.outputs.number }}" \
+            --repo "${{ github.repository }}" \
+            --merge \
+            --delete-branch=false \
+            --subject "[auto-sync] Merge upstream mathlib4 into master (PR #${{ steps.pr.outputs.number }})"
+          echo "Merged PR #${{ steps.pr.outputs.number }}; main CI on master will fire next."
+
+      - name: Comment and fail on CI failure
+        if: steps.pr.outputs.found == 'true' && github.event.workflow_run.conclusion != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: |
+          CI_URL="${{ github.event.workflow_run.html_url }}"
+          gh pr comment "${{ steps.pr.outputs.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "Auto-merge blocked: \`CI (self-hosted)\` concluded with \`${{ github.event.workflow_run.conclusion }}\`. See ${CI_URL}. Resolve and push to \`sync/upstream\` to retry."
+          echo "::error::CI failed on sync/upstream (${{ github.event.workflow_run.conclusion }}). Auto-merge aborted."
+          exit 1

@@ -2,6 +2,10 @@ name: Quiver
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["CI (self-hosted)"]
+    types: [completed]
+    branches: [master]
 
 concurrency:
   group: lean-build
@@ -11,6 +15,14 @@ jobs:
   extract:
     name: Quiver
     runs-on: [self-hosted, quiver]
+    # Run on manual dispatch, or when main CI on master succeeded for an auto-sync
+    # merge commit. We detect the latter by the [auto-sync] marker in the commit
+    # subject set by sync_finalize.yml — manual pushes to master won't match.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       contains(github.event.workflow_run.head_commit.message, '[auto-sync]'))
     timeout-minutes: 300
     env:
       LAKE_NO_CACHE: true
