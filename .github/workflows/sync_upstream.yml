@@ -1,0 +1,155 @@
+name: Sync upstream mathlib4
+
+on:
+  schedule:
+    # Daily at 06:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Merge upstream into sync/upstream and open PR
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM_URL: https://github.com/leanprover-community/mathlib4.git
+      UPSTREAM_BRANCH: master
+      SYNC_BRANCH: sync/upstream
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          # PAT so the subsequent push triggers CI on the PR.
+          token: ${{ secrets.SYNC_PAT }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Skip if a sync PR is already open
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: |
+          EXISTING=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "$SYNC_BRANCH" \
+            --state open \
+            --json number,url \
+            --jq '.[0]')
+          if [ -n "$EXISTING" ]; then
+            URL=$(echo "$EXISTING" | jq -r .url)
+            echo "::notice::Open PR already exists on $SYNC_BRANCH ($URL); skipping this run. Merge or close it to resume daily sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch upstream
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream "$UPSTREAM_BRANCH"
+
+      - name: Check whether sync is needed
+        id: check
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          if git merge-base --is-ancestor upstream/$UPSTREAM_BRANCH HEAD; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "Upstream is already merged into master; nothing to do."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "upstream_sha=$(git rev-parse upstream/$UPSTREAM_BRANCH)" >> "$GITHUB_OUTPUT"
+            echo "upstream_short=$(git rev-parse --short upstream/$UPSTREAM_BRANCH)" >> "$GITHUB_OUTPUT"
+            echo "commit_count=$(git rev-list --count HEAD..upstream/$UPSTREAM_BRANCH)" >> "$GITHUB_OUTPUT"
+            echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reset sync branch to current master
+        if: steps.check.outputs.needed == 'true'
+        run: git checkout -B "$SYNC_BRANCH" master
+
+      - name: Merge upstream (commit conflict markers if any)
+        if: steps.check.outputs.needed == 'true'
+        id: merge
+        run: |
+          MSG="Merge upstream/${UPSTREAM_BRANCH}@${{ steps.check.outputs.upstream_short }} (${{ steps.check.outputs.today }})"
+          if git merge --no-ff --no-edit -m "$MSG" upstream/$UPSTREAM_BRANCH; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          else
+            # Conflict path: stage everything (including conflict markers) and commit
+            # the merge anyway. CI will fail on the markers, blocking auto-merge.
+            git add -A
+            git commit --no-edit -m "$MSG (HAS CONFLICTS)"
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            git diff-tree --no-commit-id --name-only -r HEAD \
+              | xargs -I{} grep -l '^<<<<<<< ' {} 2>/dev/null \
+              > /tmp/conflict_files.txt || true
+          fi
+
+      - name: Push sync branch
+        if: steps.check.outputs.needed == 'true'
+        run: git push origin "$SYNC_BRANCH" --force-with-lease
+
+      - name: Upsert pull request
+        if: steps.check.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}
+        run: |
+          if [ "${{ steps.merge.outputs.conflict }}" = "true" ]; then
+            CONFLICT_FILES=$(cat /tmp/conflict_files.txt 2>/dev/null || echo "(none captured)")
+            TITLE="[CONFLICT] Sync upstream mathlib4 (${{ steps.check.outputs.today }})"
+            BODY=$(cat <<EOF
+          Automated daily sync from \`leanprover-community/mathlib4@${UPSTREAM_BRANCH}\`.
+
+          - Upstream tip: \`${{ steps.check.outputs.upstream_sha }}\`
+          - Commits being merged: ${{ steps.check.outputs.commit_count }}
+          - Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          ## ⚠️ Merge conflicts
+
+          The merge commit on this branch contains conflict markers, so CI will fail
+          and auto-merge will not run. Resolve manually:
+
+          \`\`\`
+          git fetch origin && git checkout sync/upstream
+          # edit conflicted files to remove markers, then:
+          git commit --amend --no-edit
+          git push --force-with-lease
+          \`\`\`
+
+          ### Files with conflict markers
+          \`\`\`
+          ${CONFLICT_FILES}
+          \`\`\`
+          EOF
+          )
+          else
+            TITLE="Sync upstream mathlib4 (${{ steps.check.outputs.today }}, +${{ steps.check.outputs.commit_count }} commits)"
+            BODY=$(cat <<EOF
+          Automated daily sync from \`leanprover-community/mathlib4@${UPSTREAM_BRANCH}\`.
+
+          - Upstream tip: \`${{ steps.check.outputs.upstream_sha }}\`
+          - Commits being merged: ${{ steps.check.outputs.commit_count }}
+          - Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Auto-merges to \`master\` once \`CI (self-hosted)\` passes. Regenerated
+          daily until merged or until a conflict appears.
+          EOF
+          )
+          fi
+
+          # Guard step ensures no open PR exists on $SYNC_BRANCH at this point,
+          # so always create a fresh PR rather than risk editing a closed/merged one.
+          gh pr create \
+            --base master \
+            --head "$SYNC_BRANCH" \
+            --title "$TITLE" \
+            --body "$BODY"
