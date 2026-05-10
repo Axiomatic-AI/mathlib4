@@ -94,6 +94,14 @@ jobs:
               > /tmp/conflict_files.txt || true
           fi
 
+      - name: Write upstream SHA to upstream_sha
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          echo "${{ steps.check.outputs.upstream_sha }}" > upstream_sha
+          git add upstream_sha
+          # Fold into the merge commit so master gets one atomic commit per sync.
+          git commit --amend --no-edit
+
       - name: Push sync branch
         if: steps.check.outputs.needed == 'true'
         run: git push origin "$SYNC_BRANCH" --force-with-lease
@@ -148,8 +156,10 @@ jobs:
 
           # Guard step ensures no open PR exists on $SYNC_BRANCH at this point,
           # so always create a fresh PR rather than risk editing a closed/merged one.
-          gh pr create \
-            --base master \
-            --head "$SYNC_BRANCH" \
-            --title "$TITLE" \
-            --body "$BODY"
+          # Use REST API directly: `gh pr create` does extra GraphQL queries that
+          # fail under fine-grained PATs even with full pull-requests:write scope.
+          gh api -X POST "repos/${{ github.repository }}/pulls" \
+            -f title="$TITLE" \
+            -f head="$SYNC_BRANCH" \
+            -f base=master \
+            -f body="$BODY"
