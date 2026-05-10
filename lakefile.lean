@@ -16,8 +16,7 @@ require "leanprover-community" / "proofwidgets" @ git "v0.0.98"
 require "leanprover-community" / "importGraph" @ git "main"
 require "leanprover-community" / "LeanSearchClient" @ git "main"
 require "leanprover-community" / "plausible" @ git "main"
-require quiver from git
-  "git@github.com:Axiomatic-AI/quiver" @ "main" / "lean"
+require quiver from "/home/leopoldo/quiver/lean"
 
 
 /-!

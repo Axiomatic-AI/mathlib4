@@ -66,7 +66,7 @@ jobs:
         run: |
           source $HOME/quiver/.venv/bin/activate
           lake update quiver
-          pip install --force-reinstall --no-deps .lake/packages/quiver/docker
+          pip install --force-reinstall --no-deps /home/leopoldo/quiver/docker
 
       - name: Copy master build cache
         run: |
