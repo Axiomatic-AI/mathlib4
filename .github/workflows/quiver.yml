@@ -49,6 +49,15 @@ jobs:
             exit 1
           }
 
+      - name: Ensure quiver require survives merge
+        run: |
+          # The merge from master can silently drop the quiver `require` line.
+          # Restore it if missing so `lake update quiver` actually fetches the package.
+          if ! grep -q '^require quiver ' lakefile.lean; then
+            echo "::warning::quiver require line missing after merge — restoring."
+            echo 'require quiver from "/home/leopoldo/quiver/lean"' >> lakefile.lean
+          fi
+
       - name: Install elan (if needed)
         run: |
           if ! command -v elan &> /dev/null; then
@@ -66,7 +75,7 @@ jobs:
         run: |
           source $HOME/quiver/.venv/bin/activate
           lake update quiver
-          pip install --force-reinstall --no-deps .lake/packages/quiver/docker
+          pip install --force-reinstall --no-deps /home/leopoldo/quiver/docker
 
       - name: Copy master build cache
         run: |
