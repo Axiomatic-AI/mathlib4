@@ -5,7 +5,7 @@
 root_modules = ["Mathlib"]
 lean_dir = "."
 data_dir = "/home/leopoldo/quiver-data"
-# docker_dir = ""       # auto-detected from .lake/packages/quiver/docker; override if needed
+docker_dir = "/home/leopoldo/quiver/docker"       # auto-detected from .lake/packages/quiver/docker; override if needed
 
 [lgg]
 nn_descent_checkpoint = "lgg/nn_descent.knn"  # .csv and _generic_patterns.csv derived from this
