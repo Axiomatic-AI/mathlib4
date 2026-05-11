@@ -23,7 +23,7 @@ jobs:
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        contains(github.event.workflow_run.head_commit.message, '[auto-sync]'))
-    timeout-minutes: 300
+    timeout-minutes: 600
     env:
       LAKE_NO_CACHE: true
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -100,6 +100,15 @@ jobs:
 
       - name: Build quiver
         run: lake build quiver
+
+      - name: Warm OS page cache for olean files
+        run: |
+          # The runner's Persistent Disk reads at ~220 MB/s; pre-loading every
+          # .olean into the page cache (~107 GiB free RAM available) makes
+          # the extract step's many small random reads come from memory.
+          find .lake/build/lib .lake/packages/*/.lake/build/lib \
+            -name '*.olean' -print0 2>/dev/null \
+            | xargs -0 -n 256 -P 8 cat > /dev/null
 
       - name: Extract graph
         run: |
