@@ -90,15 +90,25 @@ jobs:
             # intentionally removed (see commit 462e50a927 and PR #9).
             git status --porcelain | awk '$1 == "DU" { print substr($0, 4) }' \
               | while IFS= read -r f; do git rm -- "$f"; done
-            # Stage the rest. Content conflicts keep their <<<<<<< markers so
-            # CI fails visibly on the PR. Use --cc on diff-tree below: the default
-            # `-r` view of a merge commit omits combined-diff filenames.
-            git add -A
-            git commit --no-edit -m "$MSG (HAS CONFLICTS)"
-            echo "conflict=true" >> "$GITHUB_OUTPUT"
-            git diff-tree --no-commit-id --name-only --cc -r HEAD \
-              | xargs -I{} grep -l '^<<<<<<< ' {} 2>/dev/null \
-              > /tmp/conflict_files.txt || true
+            # Are any unmerged paths left after the DU cleanup? If everything
+            # was DU, the merge is clean — treat it as a no-conflict merge so
+            # the PR title and CI flow match reality. Otherwise commit with
+            # markers so the PR fails CI and blocks auto-merge.
+            REMAINING=$(git status --porcelain | awk '/^(UU|AA|UD|DD|AU|UA) / { print }')
+            if [ -z "$REMAINING" ]; then
+              git commit --no-edit -m "$MSG"
+              echo "conflict=false" >> "$GITHUB_OUTPUT"
+            else
+              # Use --cc on diff-tree below: the default `-r` view of a merge
+              # commit omits combined-diff filenames, leaving the PR body's
+              # "Files with conflict markers" section empty.
+              git add -A
+              git commit --no-edit -m "$MSG (HAS CONFLICTS)"
+              echo "conflict=true" >> "$GITHUB_OUTPUT"
+              git diff-tree --no-commit-id --name-only --cc -r HEAD \
+                | xargs -I{} grep -l '^<<<<<<< ' {} 2>/dev/null \
+                > /tmp/conflict_files.txt || true
+            fi
           fi
 
       - name: Write upstream SHA to upstream_sha
