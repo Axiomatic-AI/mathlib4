@@ -2050,6 +2050,7 @@ public import Mathlib.Analysis.InnerProductSpace.LinearMap
 public import Mathlib.Analysis.InnerProductSpace.LinearPMap
 public import Mathlib.Analysis.InnerProductSpace.MeanErgodic
 public import Mathlib.Analysis.InnerProductSpace.MulOpposite
+public import Mathlib.Analysis.InnerProductSpace.NormDet
 public import Mathlib.Analysis.InnerProductSpace.NormPow
 public import Mathlib.Analysis.InnerProductSpace.OfNorm
 public import Mathlib.Analysis.InnerProductSpace.Orientation
@@ -5742,6 +5743,7 @@ public import Mathlib.NumberTheory.Harmonic.EulerMascheroni
 public import Mathlib.NumberTheory.Harmonic.GammaDeriv
 public import Mathlib.NumberTheory.Harmonic.Int
 public import Mathlib.NumberTheory.Harmonic.ZetaAsymp
+public import Mathlib.NumberTheory.HeckeRing.Defs
 public import Mathlib.NumberTheory.Height.Basic
 public import Mathlib.NumberTheory.Height.EllipticCurve
 public import Mathlib.NumberTheory.Height.MvPolynomial
@@ -6957,6 +6959,7 @@ public import Mathlib.RingTheory.Regular.LinearMap
 public import Mathlib.RingTheory.Regular.ProjectiveDimension
 public import Mathlib.RingTheory.Regular.RegularSequence
 public import Mathlib.RingTheory.RegularLocalRing.Defs
+public import Mathlib.RingTheory.RegularLocalRing.Polynomial
 public import Mathlib.RingTheory.RingHom.Bijective
 public import Mathlib.RingTheory.RingHom.EssFiniteType
 public import Mathlib.RingTheory.RingHom.Etale
@@ -7290,6 +7293,7 @@ public import Mathlib.Tactic.DeriveTraversable
 public import Mathlib.Tactic.Determinant.Bird
 public import Mathlib.Tactic.Determinant.Bird.Cert
 public import Mathlib.Tactic.Determinant.Bird.Meta
+public import Mathlib.Tactic.DuplicateDecls
 public import Mathlib.Tactic.ENatToNat
 public import Mathlib.Tactic.Eqns
 public import Mathlib.Tactic.ErwQuestion
